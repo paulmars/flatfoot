@@ -75,7 +75,7 @@ describe FlatFooted, "class" do
     Dir.stub!(:mkdir).and_return true
     Dir.stub!(:directory?).and_return true
     @f = FlatFooted.new
-    @data_dir = "here/data/flat_footed"
+    @data_dir = "here/data/flat_footeds"
   end
 
   it "should initialize" do
@@ -91,7 +91,7 @@ describe FlatFooted, "class" do
   end
 
   it "should have a datadir" do
-    User.datadir.should == "here/data/user"
+    User.datadir.should == "here/data/users"
   end
 
   it "should check to see if directory exists" do
@@ -209,7 +209,7 @@ describe FlatFooted, "class" do
 
   it "should save if empty" do
     @f = FlatFooted.new
-    File.stub!(:open).with("here/data/flat_footed/#{@f.fn}", 'w').and_return 545
+    File.stub!(:open).with("here/data/flat_footeds/#{@f.fn}", 'w').and_return 545
     @f.save.should_not == false
   end
 
@@ -286,7 +286,7 @@ class Attributes
   # end
 end
 
-describe Seal, "with name attribute" do
+describe Photo, "with name attribute" do
 
   it "should have a name" do
     p = Photo.new

@@ -2,7 +2,7 @@
   require g
 end
 
-# todo: delete, validate
+# todo: validate, defaults for attrbutes
 
 class String
   def self.random_string(len)
@@ -26,10 +26,6 @@ class Flatfoot
       self.instance_eval %{
         attributes_set << "#{arg.to_s}"
         attr_accessor :#{arg}
-
-        def #{arg}= value
-          @#{arg} = value
-        end
       }
     end
   end
@@ -39,16 +35,14 @@ class Flatfoot
   def attributes
     return ret if attributes_set.nil? || attributes_set.empty?
     ret = {}
-    attributes_set.each do |a|
-      ret[a] = send(a.to_s)
-    end
+    attributes_set.each {|a| ret[a] = send(a.to_s) }
     ret
   end
 
   SKIP_NAMES = %w{ . .. }
 
   def self.datafiles
-    Dir.entries(datadir).reject{|x| SKIP_NAMES.include? x}
+    Dir.entries(datadir).reject{|x| SKIP_NAMES.include? x }
   rescue
     []
   end
@@ -60,7 +54,7 @@ class Flatfoot
   end
 
   def self.datadir
-    datadir = File.join(sitedir, DATADIR, self.to_s.underscore)
+    datadir = File.join(sitedir, DATADIR, self.to_s.underscore.pluralize)
     FileUtils.mkdir(datadir) unless File.directory?(datadir)
     datadir
   end
@@ -78,9 +72,11 @@ class Flatfoot
     self.new(b)
   end
 
-  def file_location
+  def self.file_location(fn)
     File.join(datadir, fn)
   end
+
+  def file_location; self.class.file_location(self.fn); end
 
   def generate_fn
     # Digest::SHA1.hexdigest(self.class.to_s + @created_at.to_s)
@@ -88,7 +84,7 @@ class Flatfoot
     String::random_string(6)
   end
 
-  def new_record?; @new_record == true end
+  def new_record?; @new_record == true; end
 
   def initialize(params = {})
     params ||= {}
@@ -116,9 +112,7 @@ class Flatfoot
 
   def send_callback(name)
     self.send(name)
-    callbacks[name].each do |m|
-      self.send(m)
-    end
+    callbacks[name].each {|m| self.send(m) }
   end
 
   def save
@@ -132,6 +126,10 @@ class Flatfoot
 
     @new_record = false
     status
+  end
+
+  def rm
+    File.delete(file_location)
   end
 
   def serialize
@@ -185,9 +183,8 @@ class Flatfoot
        class_eval %{
         attributes :#{klass}_type
 
-        # TODO, remove eval
         def #{klass}
-          @#{klass} = eval("\#{#{klass}_type}.from_fn(#{klass}_fn)")
+          @#{klass} = #{klass}_type.constantize.from_fn(#{klass}_fn)
         end
 
         def #{klass}= #{klass}
@@ -200,84 +197,78 @@ class Flatfoot
 
   def self.has_many klass, options = {}
     klass = klass.to_s
-    singular = klass.to_s.singularize
+    singular = klass.singularize
     key = self.to_s.foreign_key.gsub('_id', '_fn')
     class_eval %{
+      attributes :#{singular}_fns
+      attr_accessor :#{klass}
+
       def #{singular}_fns
-        self.#{klass}.map(&:fn)
+        @#{singular}_fns ||= Array.new
       end
 
       def #{klass}
-        @#{klass} ||= #{klass.classify}.all.select{|x| x.#{key} == self.fn }
+        if @#{singular}_fns
+          @#{klass} ||= @#{singular}_fns.collect{|x| #{klass.classify}.from_fn(x)}
+        end
+        @#{klass} ||= Array.new
       end
 
-      # def after_save
-      #   #{klass}.each{|x| x.#{key} = self.fn; x.save }
-      # end
+      before_save("callback_collect_#{singular}_fns") do
+        if @#{klass}
+          matched = @#{klass}
+        else
+          matched = #{klass.classify}.all.select{|x| x.#{key} == self.fn }
+        end
+        @#{singular}_fns = matched.map(&:fn)
+      end
+
+      after_save("callback_new_#{klass}") do
+        #{klass}.each{|x| x.#{key} = self.fn; x.save }
+      end
     }
   end
 
   def self.has_one klass, options = {}
-    klass = klass.to_s
-    singular = klass.to_s.singularize
-    key = self.to_s.foreign_key.gsub('_id', '_fn')
-    class_eval %{
-      def #{singular}_fn
-        return #{klass}.fn if @#{klass}
-        nil
-      end
-
-      def #{klass}
-        @#{klass} ||= #{klass.classify}.all.select{|x| x.#{key} == x.fn }
-        @#{klass} = nil if @#{klass} == []
-      end
-
-      def #{klass}= #{klass}
-        @#{klass} = #{klass}
-      end
-    }
+    belongs_to klass, options
   end
 
 ### Callbacks
 
-  def self.initialize_callback(name)
+  CALLBACKS = %w{ before_save after_save before_create after_create }
+
+  def self.initialize_callbacks
+    all_calls = CALLBACKS.collect{|x| "@callbacks[:#{x}] ||= []" }.join('; ')
     self.instance_eval %{
       @callbacks ||= {}
-      @callbacks[:#{name}] ||= []
+      #{all_calls}
     }
   end
 
   def self.callbacks
-    initialize_callback(:before_save)
-    initialize_callback(:before_create)
-    initialize_callback(:after_create)
-    initialize_callback(:after_save)
-    self.instance_eval('@callbacks')
+    initialize_callbacks
+    self.instance_variable_get('@callbacks')
   end
 
   def callbacks; self.class.callbacks; end
 
   def self.before_save(method, &block)
-    self.initialize_callback(:before_save)
-    self.instance_eval("@callbacks[:before_save] << \"#{method}\"")
+    callbacks[:before_save] << method.to_s
     define_method(method, block) if block_given?
   end
 
   def self.before_create(method, &block)
-    self.initialize_callback(:before_create)
-    self.instance_eval("@callbacks[:before_create] << \"#{method}\"")
+    callbacks[:before_create] << method.to_s
     define_method(method, block) if block_given?
   end
 
   def self.after_save(method, &block)
-    self.initialize_callback(:after_save)
-    self.instance_eval("@callbacks[:after_save] << \"#{method}\"")
+    callbacks[:after_save] << method.to_s
     define_method(method, block) if block_given?
   end
 
   def self.after_create(method, &block)
-    self.initialize_callback(:after_create)
-    self.instance_eval("@callbacks[:after_create] << \"#{method}\"")
+    callbacks[:after_create] << method.to_s
     define_method(method, block) if block_given?
   end
 
