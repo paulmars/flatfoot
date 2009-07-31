@@ -15,5 +15,8 @@ class Post < Flatfoot
 
 end
 
+puts "==== create ===="
 pp u = User.create(:name => "paul")
 pp p = Post.create(:user => u)
+
+

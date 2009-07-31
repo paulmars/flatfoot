@@ -26,7 +26,16 @@ end
 u = User.create(:name => "paul")
 p = Post.create(:user => u)
 
+Install
+
+gem install activesupport
+git clone git://github.com/paulmars/flatfoot.git
+cd flatfoot
+
+Try
+
 ruby demo.rb
+ls -lR data
 
 Accessors:
 
