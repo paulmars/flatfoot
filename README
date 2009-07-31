@@ -26,8 +26,9 @@ class Post < Flatfoot
 end
 
 u = User.create(:name => "paul")
+p = Post.create(:user => u)
 
-p = Post.new(:user => User.new(:name => "paul"))
+ruby demo.rb
 
 Accessors:
 

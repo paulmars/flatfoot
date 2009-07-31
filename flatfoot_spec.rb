@@ -147,6 +147,19 @@ describe FlatFooted, "class" do
 
   ResponseTester.respond_test(FlatFooted, "attributes")
 
+
+  it "should return an object" do
+    class FlatFooted
+      attributes :title
+    
+      def serialize
+        true
+      end
+    end
+    
+    FlatFooted.create(:title => "title").instance_of?(FlatFooted).should == true
+  end
+
   it "should accept attributes" do
     class FlatFooted
       attributes :title
@@ -200,7 +213,7 @@ describe FlatFooted, "class" do
     @f = FlatFooted.new(:fn => "FILENAME4")
     @f.fn.should == "FILENAME4"
   end
-
+  
   it "should create a new fn" do
     class FlatFooted
       def generate_fn

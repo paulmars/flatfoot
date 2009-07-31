@@ -114,6 +114,7 @@ class Flatfoot
   def self.create(params = {})
     object = self.new(params)
     object.save
+    object
   end
 
   def send_callback(name)
