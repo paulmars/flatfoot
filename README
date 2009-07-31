@@ -1,0 +1,49 @@
+= Flatfoot
+
+a flatfile based ORM
+
+Uses flat files and YAML serialization to store data. Great for blogs and other simple things.
+
+fn is the shorthand for 'filename' which is the primary key.
+
+currently uses a random_string of X characters for uniqueness, this is easily overidable by changeing "generate_fn" method.
+
+
+class User < Flatfoot
+
+  has_many :photos
+  has_many :posts
+
+  attributes :name, :hashed_password, :salt, :email
+
+end
+
+class Post < Flatfoot
+
+  belongs_to :user
+  attributes :title, :body
+
+end
+
+Accessors:
+
+AR styled. 
+
+Finders:
+
+User.all.select{|x| x.created_at > YOUR_TIME }
+
+Callbacks:
+
+before_save
+after_save
+before_create
+after_create
+
+Automatic Inclusion of
+fn, created_at, updated_at attributes
+
+Todo:
+validations
+before_valid, after_valid
+valid?
