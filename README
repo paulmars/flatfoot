@@ -25,6 +25,10 @@ class Post < Flatfoot
 
 end
 
+u = User.create(:name => "paul")
+
+p = Post.new(:user => User.new(:name => "paul"))
+
 Accessors:
 
 AR styled. 
