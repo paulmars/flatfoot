@@ -2,6 +2,8 @@
   require g
 end
 
+# todo: delete, validate
+
 class String
   def self.random_string(len)
     chars = ("a".."z").to_a + ("A".."Z").to_a + ("0".."9").to_a
@@ -15,22 +17,17 @@ class Flatfoot
 
   attr_accessor :new_record, :attributes_set
 
-  def attributes_set
-    if @attributes_set.nil?
-      a = ["created_at", "updated_at", "fn"]
-      @attributes_set = Set.new(a)
-    end
-    @attributes_set
-  end
+  def self.attributes_set; self.instance_variable_get("@attributes_set"); end
+  def attributes_set; self.class.attributes_set; end
 
-  # test, defaults = {},
   def self.attributes *args
+    self.instance_eval %{@attributes_set ||= Set.new(["created_at", "updated_at", "fn"])}
     args.each do |arg|
-      class_eval %{
+      self.instance_eval %{
+        attributes_set << "#{arg.to_s}"
         attr_accessor :#{arg}
 
         def #{arg}= value
-          attributes_set << "#{arg.to_s}" #TODO:refactor
           @#{arg} = value
         end
       }
@@ -40,8 +37,8 @@ class Flatfoot
   attributes :created_at, :updated_at, :fn
 
   def attributes
-    ret = {}
     return ret if attributes_set.nil? || attributes_set.empty?
+    ret = {}
     attributes_set.each do |a|
       ret[a] = send(a.to_s)
     end
@@ -126,7 +123,7 @@ class Flatfoot
 
   def save
     @updated_at = Time.now.utc
-    
+
     send_callback(:before_save)
     send_callback(:before_create) if new_record?
     status = serialize
@@ -157,7 +154,7 @@ class Flatfoot
 ### SELECTORS
 
   def self.first
-    created_first
+    self.all.first
   end
 
   def self.all

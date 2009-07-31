@@ -1,4 +1,5 @@
 require 'rubygems'
+require 'ruby-debug'
 require 'spec'
 require 'flatfoot'
 
@@ -151,17 +152,17 @@ describe FlatFooted, "class" do
   it "should return an object" do
     class FlatFooted
       attributes :title
-    
+
       def serialize
         true
       end
     end
-    
+
     FlatFooted.create(:title => "title").instance_of?(FlatFooted).should == true
   end
 
   it "should accept attributes" do
-    class FlatFooted
+    class FlatFooted < Flatfoot
       attributes :title
     end
 
@@ -171,14 +172,12 @@ describe FlatFooted, "class" do
   end
 
   it "should respond to attributes" do
-    class FlatFooted
+    class FlatFooted < Flatfoot
       attributes :title
     end
 
     @f = FlatFooted.new
     @f.respond_to?(:attributes).should == true
-    # TODO, doesn't work, is important!
-    # @f.attributes.include?(:title).should == true
 
     @f.title = "title"
     @f.attributes_set.include?("title").should == true
@@ -191,6 +190,11 @@ describe FlatFooted, "class" do
     @f.attributes_set.include?("created_at").should == true
     @f.attributes_set.include?("updated_at").should == true
     @f.attributes_set.include?("fn").should == true
+  end
+
+  it "should respond to non core attributes immediatly" do
+    @f = FlatFooted.new
+    @f.attributes_set.include?("title").should == true
   end
 
   it "should accept params" do
@@ -213,7 +217,7 @@ describe FlatFooted, "class" do
     @f = FlatFooted.new(:fn => "FILENAME4")
     @f.fn.should == "FILENAME4"
   end
-  
+
   it "should create a new fn" do
     class FlatFooted
       def generate_fn
@@ -244,7 +248,7 @@ class Seal < Flatfoot
   attributes :name
 end
 
-describe Seal, "should create attributes" do
+describe Seal, "with name attribute" do
 
   it "should have a name" do
     Seal.new.respond_to?("name").should == true
@@ -253,6 +257,50 @@ describe Seal, "should create attributes" do
   it "should accept a name" do
     @seal = Seal.new
     @seal.respond_to?("name=").should == true
+  end
+
+end
+
+class Photo < Flatfoot
+  attributes :content_type, :original_filename#, :another_attr
+
+  def photo= attrib
+    @content_type = attrib.content_type
+    self.original_filename = attrib.original_filename
+    # another_attr = attrib.another_attr
+  end
+
+end
+
+class Attributes
+  def content_type
+    "content_type"
+  end
+
+  def original_filename
+    "original_filename"
+  end
+
+  # def another_attr
+  #   "another_attr"
+  # end
+end
+
+describe Seal, "with name attribute" do
+
+  it "should have a name" do
+    p = Photo.new
+    p.attributes_set.include?("content_type").should == true
+    p.attributes_set.include?("original_filename").should == true
+    p.photo = Attributes.new
+    p.attributes_set.include?("content_type").should == true
+    p.attributes_set.include?("original_filename").should == true
+    p.attributes["content_type"].should == "content_type"
+    p.attributes["original_filename"].should == "original_filename"
+    # p.attributes["another_attr"].should == "another_attr"
+    p.content_type.should == "content_type"
+    p.original_filename.should == "original_filename"
+    # p.another_attr.should == "another_attr"
   end
 
 end
