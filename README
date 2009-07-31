@@ -3,11 +3,9 @@
 a flatfile based ORM
 
 Uses flat files and YAML serialization to store data. Great for blogs and other simple things.
+check it out by running
 
-fn is the shorthand for 'filename' which is the primary key.
-
-currently uses a random_string of X characters for uniqueness, this is easily overidable by changeing "generate_fn" method.
-
+ruby demo.rb
 
 class User < Flatfoot
 
@@ -47,6 +45,10 @@ after_create
 
 Automatic Inclusion of
 fn, created_at, updated_at attributes
+
+fn is the shorthand for 'filename' which is the primary key.
+
+currently uses a random_string of X characters for uniqueness, this is easily overidable by changeing "generate_fn" method.
 
 Todo:
 validations
