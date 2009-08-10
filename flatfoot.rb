@@ -5,8 +5,8 @@ end
 # todo: validate, defaults for attrbutes
 
 class String
-  def self.random_string(len)
-    chars = ("a".."z").to_a + ("A".."Z").to_a + ("0".."9").to_a
+  def self.random_string_lower(len)
+    chars = ("a".."z").to_a + ("0".."9").to_a
     str = ""
     1.upto(len) { |i| str << chars[rand(chars.size-1)] }
     return str
@@ -70,6 +70,9 @@ class Flatfoot
     b = {}
     YAML.load(File.read(f)).each{|k,v| b[k.to_sym] = v }
     self.new(b)
+  rescue
+    puts "NO FILE FOUND"
+    nil
   end
 
   def self.file_location(fn)
@@ -79,9 +82,7 @@ class Flatfoot
   def file_location; self.class.file_location(self.fn); end
 
   def generate_fn
-    # Digest::SHA1.hexdigest(self.class.to_s + @created_at.to_s)
-    # String::random_string(40)
-    String::random_string(6)
+    String::random_string_lower(40)
   end
 
   def new_record?; @new_record == true; end
@@ -89,7 +90,11 @@ class Flatfoot
   def initialize(params = {})
     params ||= {}
     params.each do |k,v|
-      send("#{k}=", v)
+      begin
+        send("#{k}=", v)
+      rescue
+        puts "error attribute fail" + $! + " " + self.class.to_s
+      end
     end
 
     @created_at = params[:created_at] if params[:created_at]
@@ -129,11 +134,21 @@ class Flatfoot
   end
 
   def rm
+    send_callback(:before_destroy)
     File.delete(file_location)
+    send_callback(:after_destroy)
   end
 
   def serialize
     File.open(file_location, 'w') {|f| f.write attributes.to_yaml }
+  end
+
+  def update_attributes(params = {})
+    params ||= {}
+    params.each do |k,v|
+      send("#{k}=", v)
+    end
+    self.save
   end
 
   # http://api.rubyonrails.org/classes/ActiveRecord/Callbacks.html
@@ -148,6 +163,8 @@ class Flatfoot
   def before_save; end
   def after_create; end
   def after_save; end
+  def before_destroy; end
+  def after_destroy; end
 
 ### SELECTORS
 
@@ -169,14 +186,21 @@ class Flatfoot
     klass = klass.to_s
     class_eval %{
       attributes :#{klass}_fn
+      # attr_accessor :#{klass}
 
       def #{klass}
+        # return self.#{klass} if self.#{klass}
         @#{klass} ||= #{klass.classify}.from_fn(#{klass}_fn)
       end
 
       def #{klass}= #{klass}
+        # self.#{klass} = #{klass}
         self.#{klass}_fn = #{klass}.fn
       end
+
+      # after_save("callback_new_#{klass}") do
+      #   #{klass}.save if #{klass}.new_record?
+      # end
     }
 
     if options[:polymorphic] == true
@@ -214,18 +238,18 @@ class Flatfoot
         @#{klass} ||= Array.new
       end
 
-      before_save("callback_collect_#{singular}_fns") do
-        if @#{klass}
-          matched = @#{klass}
-        else
-          matched = #{klass.classify}.all.select{|x| x.#{key} == self.fn }
-        end
-        @#{singular}_fns = matched.map(&:fn)
-      end
-
-      after_save("callback_new_#{klass}") do
-        #{klass}.each{|x| x.#{key} = self.fn; x.save }
-      end
+      # before_save("callback_collect_#{singular}_fns") do
+      #   if @#{klass}
+      #     matched = @#{klass}
+      #   else
+      #     matched = #{klass.classify}.all.select{|x| x.#{key} == self.fn }
+      #   end
+      #   @#{singular}_fns = matched.map(&:fn)
+      # end
+      #
+      # after_save("callback_new_#{klass}") do
+      #   #{klass}.select{|x| x.new_record? }.each{|x| x.#{key} = self.fn; x.save }
+      # end
     }
   end
 
@@ -235,7 +259,7 @@ class Flatfoot
 
 ### Callbacks
 
-  CALLBACKS = %w{ before_save after_save before_create after_create }
+  CALLBACKS = %w{ before_save after_save before_create after_create before_destroy after_destroy }
 
   def self.initialize_callbacks
     all_calls = CALLBACKS.collect{|x| "@callbacks[:#{x}] ||= []" }.join('; ')
@@ -269,6 +293,16 @@ class Flatfoot
 
   def self.after_create(method, &block)
     callbacks[:after_create] << method.to_s
+    define_method(method, block) if block_given?
+  end
+  
+  def self.before_destroy(method, &block)
+    callbacks[:before_destroy] << method.to_s
+    define_method(method, block) if block_given?
+  end
+  
+  def self.after_destroy(method, &block)
+    callbacks[:after_destroy] << method.to_s
     define_method(method, block) if block_given?
   end
 
